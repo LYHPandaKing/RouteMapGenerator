@@ -1,17 +1,16 @@
-/* ===== 基本設定 ===== */
 * {
   box-sizing: border-box;
 }
 
 body {
   margin: 0;
-  font-family: system-ui, -apple-system, BlinkMacSystemFont,
-    "Segoe UI", Arial, sans-serif;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, Arial, sans-serif;
   background: #f6f6f6;
   color: #222;
 }
 
 /* ===== Header ===== */
+
 #siteHeader {
   height: 60px;
   background: #e60012;
@@ -26,35 +25,43 @@ body {
   margin: 0;
 }
 
-/* ===== App Layout ===== */
+/* ===== Layout ===== */
+
 #app {
   display: flex;
-  align-items: flex-start;
   height: calc(100vh - 60px);
 }
 
-/* ===== 路線圖區（左 / 上） ===== */
+/* ===== Map Pane ===== */
+
 #mapPane {
   flex: 0 0 auto;
-  width: 954px;
   padding: 8px;
   position: sticky;
   top: 60px;
+  display: flex;
+  justify-content: center;
 }
 
 #routeCanvas {
   display: block;
   background: #fff;
   border: 1px solid #ccc;
+
+  max-width: 100%;
+  max-height: calc(100vh - 80px);
+  aspect-ratio: 954 / 1320;
 }
 
-/* ===== 控制面板（右 / 下） ===== */
+/* ===== Control Pane ===== */
+
 #controlPane {
   flex: 1;
   padding: 16px;
   overflow-y: auto;
-  max-height: calc(100vh - 60px);
 }
+
+/* ===== Panels ===== */
 
 .panel {
   background: #fff;
@@ -68,15 +75,11 @@ body {
   font-size: 15px;
 }
 
-label {
-  font-size: 13px;
-  color: #555;
-}
+/* ===== Inputs ===== */
 
 input[type="text"] {
   width: 100%;
   padding: 6px 8px;
-  margin: 6px 0;
   font-size: 14px;
 }
 
@@ -86,7 +89,8 @@ button {
   cursor: pointer;
 }
 
-/* ===== 路線方向按鈕 ===== */
+/* ===== Route Options ===== */
+
 #routeOptions {
   display: flex;
   flex-direction: column;
@@ -98,7 +102,6 @@ button {
   background: #fff;
   padding: 10px;
   text-align: left;
-  cursor: pointer;
 }
 
 .route-option-btn:hover {
@@ -121,13 +124,25 @@ button {
   opacity: 0.9;
 }
 
-/* ===== Editor 提示 ===== */
-.hint {
-  font-size: 13px;
-  color: #777;
+/* ===== Editor ===== */
+
+.editor-stop {
+  border-top: 1px solid #eee;
+  padding-top: 8px;
+  margin-top: 8px;
 }
 
-/* ===== Mobile 版 ===== */
+.editor-row {
+  display: flex;
+  gap: 6px;
+}
+
+.editor-row input {
+  flex: 1;
+}
+
+/* ===== Mobile ===== */
+
 @media (max-width: 768px) {
   #app {
     flex-direction: column;
@@ -136,19 +151,13 @@ button {
 
   #mapPane {
     position: static;
-    width: 100%;
-    display: flex;
-    justify-content: center;
   }
 
   #routeCanvas {
-    width: 100%;
-    height: auto;
-    max-width: 954px;
+    max-height: calc(100vh - 120px);
   }
 
   #controlPane {
-    max-height: none;
     overflow: visible;
   }
 }
