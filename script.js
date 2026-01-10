@@ -62,6 +62,13 @@ async function findRouteVariants() {
             btn.onclick = () => {
                 fetchRouteData(variant.route, boundFull, variant.service_type);
             };
+            
+            console.log(
+          "選擇方向：",
+          variant.route,
+          boundFull,
+          variant.service_type
+        );
 
             container.appendChild(btn);
         });
@@ -74,34 +81,38 @@ async function findRouteVariants() {
 
 // --- 3. 載入特定路線的站點資料 (由上方按鈕觸發) ---
 async function fetchRouteData(route, bound, serviceType) {
-    updateStatus(`正在載入 ${route} 往 ${bound === 'outbound' ? '目的地' : '起點'} 資料...`);
-    
-    // 儲存到隱藏欄位 (雖然這個版本用不太到，但保留結構)
-    document.getElementById('boundInput').value = bound;
-    document.getElementById('serviceTypeInput').value = serviceType;
+    updateStatus(`正在載入 ${route} ${bound === 'outbound' ? '去程' : '回程'} 資料...`);
 
-    const url = `https://data.etabus.gov.hk/v1/transport/kmb/route-stop/${route}/${bound}/${serviceType}`;
+    // 🔴 關鍵：強制轉字串
+    const service = String(serviceType);
+
+    const url = `https://data.etabus.gov.hk/v1/transport/kmb/route-stop/${route}/${bound}/${service}`;
 
     try {
         const response = await fetch(url);
         const json = await response.json();
-        
-        // 排序
-        const stops = json.data.sort((a, b) => a.seq - b.seq);
-        
-        // 轉換中文名
-        const stopNames = stops.map(item => stopMap[item.stop] || item.stop);
 
-        // 填入 Textarea
+        // ✅ 防呆：沒有資料直接提示
+        if (!json.data || json.data.length === 0) {
+            updateStatus("此方向沒有站點資料（可能是特別班次）");
+            document.getElementById('stationList').value = "";
+            return;
+        }
+
+        const stops = json.data.sort((a, b) => a.seq - b.seq);
+
+        const stopNames = stops.map(item =>
+            stopMap[item.stop] || item.stop
+        );
+
         document.getElementById('stationList').value = stopNames.join('\n');
-        
-        // 嘗試自動生成預覽
+
         generateImage();
-        updateStatus(`已載入 ${stopNames.length} 個站點。`);
+        updateStatus(`已載入 ${stopNames.length} 個站點`);
 
     } catch (error) {
         console.error(error);
-        alert("載入站點失敗");
+        updateStatus("載入站點時發生錯誤");
     }
 }
 

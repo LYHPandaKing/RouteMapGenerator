@@ -80,3 +80,37 @@ canvas {
     box-shadow: 0 0 10px rgba(0,0,0,0.2);
     max-width: 100%; 
 }
+
+/* 路線方向選擇按鈕 */
+.route-option-btn {
+    text-align: left;
+    background-color: #ffffff;
+    color: #333;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    padding: 10px 12px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-size: 14px;
+}
+
+.route-option-btn strong {
+    font-size: 15px;
+}
+
+.route-option-btn small {
+    color: #666;
+}
+
+/* hover：主流淡藍高亮 */
+.route-option-btn:hover {
+    background-color: #f0f8ff;
+    border-color: #91caff;
+}
+
+/* 被選中（active） */
+.route-option-btn.active {
+    background-color: #e6f4ff;
+    border-color: #4096ff;
+    box-shadow: 0 0 0 1px rgba(64,150,255,0.3);
+}
