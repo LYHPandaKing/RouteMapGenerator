@@ -31,52 +31,44 @@ async function findRouteVariants() {
     container.innerHTML = '<p class="status">正在分析路線資料...</p>';
 
     try {
-        // 呼叫 Route API (不是 Route-Stop)
-        const response = await fetch(`https://data.etabus.gov.hk/v1/transport/kmb/route/${route}`);
+        const response = await fetch('https://data.etabus.gov.hk/v1/transport/kmb/route');
         const json = await response.json();
 
-        if (!json.data || json.data.length === 0) {
-            container.innerHTML = '<p class="status" style="color:red;">找不到此路線，請重新輸入。</p>';
+        // 🔥 正確：在前端 filter
+        const variants = json.data.filter(r => r.route === route);
+
+        if (variants.length === 0) {
+            container.innerHTML = '<p class="status" style="color:red;">找不到此路線</p>';
             return;
         }
 
-        container.innerHTML = ''; // 清空狀態文字
+        container.innerHTML = '';
 
-        // 遍歷所有結果並產生按鈕
-        json.data.forEach(variant => {
-            // 轉換方向代碼: O -> outbound, I -> inbound
+        variants.forEach(variant => {
             const boundFull = variant.bound === 'O' ? 'outbound' : 'inbound';
             const boundName = variant.bound === 'O' ? '去程' : '回程';
-            const serviceName = variant.service_type === '1' ? '主線' : `特別班次 (${variant.service_type})`;
+            const serviceName = variant.service_type === '1'
+                ? '主線'
+                : `特別班次 (${variant.service_type})`;
 
-            // 建立按鈕
             const btn = document.createElement('button');
             btn.style.textAlign = "left";
-            btn.style.backgroundColor = "#fff";
-            btn.style.color = "#333";
-            btn.style.border = "1px solid #ccc";
-            btn.style.marginBottom = "5px";
-            
-            // 按鈕顯示文字： 往 [目的地] (去程/主線)
-            btn.innerHTML = `<strong>往 ${variant.dest_tc}</strong> <br><small>${variant.orig_tc} 開出 | ${boundName} | ${serviceName}</small>`;
-            
-            // 點擊事件：載入該特定路線的站點
+
+            btn.innerHTML = `
+              <strong>往 ${variant.dest_tc}</strong><br>
+              <small>${variant.orig_tc} 開出 | ${boundName} | ${serviceName}</small>
+            `;
+
             btn.onclick = () => {
-                // 先把所有按鈕變回白色
-                Array.from(container.children).forEach(c => c.style.backgroundColor = "#fff");
-                // 把目前點擊的按鈕變色
-                btn.style.backgroundColor = "#e6f7ff";
-                
-                // 執行載入資料
                 fetchRouteData(variant.route, boundFull, variant.service_type);
             };
 
             container.appendChild(btn);
         });
 
-    } catch (error) {
-        console.error(error);
-        container.innerHTML = '<p class="status">查詢失敗，請檢查網路。</p>';
+    } catch (err) {
+        console.error(err);
+        container.innerHTML = '<p class="status">API 讀取失敗</p>';
     }
 }
 
