@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>九巴路線圖生成器 (Unofficial)</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>🚌 九巴路線圖生成器</h1>
+        <p class="subtitle">非官方工具 | 資料來源: data.etabus.gov.hk</p>
+
+        <div class="control-panel">
+            <div class="input-group">
+                <h3>1. 獲取資料</h3>
+                <label>路線號碼: <input type="text" id="routeInput" placeholder="例: 960" value="960"></label>
+                <label>方向: 
+                    <select id="boundInput">
+                        <option value="outbound">去程 (Outbound)</option>
+                        <option value="inbound">回程 (Inbound)</option>
+                    </select>
+                </label>
+                <label>服務類別: <input type="number" id="serviceTypeInput" value="1" title="通常 1 為主線"></label>
+                <button id="fetchBtn" onclick="fetchRouteData()">📡 載入政府資料</button>
+                <p id="statusMsg" class="status">等待操作...</p>
+            </div>
+
+            <div class="input-group">
+                <h3>2. 編輯內容</h3>
+                <label>全程收費 ($): <input type="text" id="priceInput" value="21.9"></label>
+                <label>站點列表 (可手動修改，一行一個):</label>
+                <textarea id="stationList" placeholder="按上方按鈕載入，或在此手動輸入..."></textarea>
+            </div>
+
+            <div class="input-group">
+                <h3>3. 生成與下載</h3>
+                <button class="action-btn" onclick="generateImage()">🎨 生成圖片</button>
+                <button class="download-btn" onclick="downloadImage()">💾 下載圖片</button>
+            </div>
+        </div>
+
+        <div class="preview-area">
+            <h3>圖片預覽</h3>
+            <div class="canvas-container">
+                <canvas id="routeCanvas"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
