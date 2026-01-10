@@ -1,16 +1,30 @@
-/* =========================
+/* ======================================================
    全域變數
-========================= */
+====================================================== */
 
-let stopMap = {};
+let stopMap = {};               // stopId -> { tc, en }
 let stopMapReady = false;
+
+let routeStops = {
+    outbound: [],
+    inbound: []
+};
+
+let currentBound = null;
 
 const canvas = document.getElementById("routeCanvas");
 const ctx = canvas.getContext("2d");
 
-/* =========================
-   初始化：下載車站資料
-========================= */
+/* ======================================================
+   站名排版設定
+====================================================== */
+
+const STOP_LABEL_MAX_WIDTH = 210;
+const MIN_SCALE_X = 0.85;
+
+/* ======================================================
+   初始化：下載車站資料（雙語）
+====================================================== */
 
 window.onload = async function () {
     updateStatus("正在下載車站資料庫（首次載入較慢）...");
@@ -22,7 +36,10 @@ window.onload = async function () {
         const json = await response.json();
 
         json.data.forEach(stop => {
-            stopMap[stop.stop] = stop.name_tc;
+            stopMap[stop.stop] = {
+                tc: stop.name_tc,
+                en: stop.name_en
+            };
         });
 
         stopMapReady = true;
@@ -34,18 +51,18 @@ window.onload = async function () {
     }
 };
 
-/* =========================
+/* ======================================================
    UI 工具
-========================= */
+====================================================== */
 
 function updateStatus(msg) {
     const el = document.getElementById("searchStatus");
     if (el) el.innerText = msg;
 }
 
-/* =========================
-   1. 搜尋路線 → 顯示方向
-========================= */
+/* ======================================================
+   1. 搜尋路線 → 顯示行車方向
+====================================================== */
 
 async function findRouteVariants() {
     const route = document
@@ -107,6 +124,8 @@ async function findRouteVariants() {
                 );
                 btn.classList.add("active");
 
+                currentBound = boundFull;
+
                 fetchRouteData(
                     variant.route,
                     boundFull,
@@ -126,9 +145,9 @@ async function findRouteVariants() {
     }
 }
 
-/* =========================
-   2. 載入站點資料
-========================= */
+/* ======================================================
+   2. 載入站點資料（雙語）
+====================================================== */
 
 async function fetchRouteData(route, bound, serviceType) {
     updateStatus(
@@ -143,21 +162,27 @@ async function fetchRouteData(route, bound, serviceType) {
 
         if (!json.data || json.data.length === 0) {
             updateStatus("此方向沒有站點資料");
-            document.getElementById("stationList").value = "";
+            routeStops[bound] = [];
             return;
         }
 
         const stops = json.data.sort((a, b) => a.seq - b.seq);
 
-        const stopNames = stops.map(item =>
-            stopMap[item.stop] || item.stop
-        );
+        const stopList = stops.map(item => {
+            const stop = stopMap[item.stop];
+            if (!stop) {
+                return { tc: item.stop, en: "" };
+            }
+            return {
+                tc: stop.tc,
+                en: stop.en
+            };
+        });
 
-        document.getElementById("stationList").value =
-            stopNames.join("\n");
+        routeStops[bound] = stopList;
 
         generateImage();
-        updateStatus(`已載入 ${stopNames.length} 個站點`);
+        updateStatus(`已載入 ${stopList.length} 個站點`);
 
     } catch (error) {
         console.error(error);
@@ -165,37 +190,109 @@ async function fetchRouteData(route, bound, serviceType) {
     }
 }
 
-/* =========================
-   3. 繪圖
-========================= */
+/* ======================================================
+   站名排版判斷
+====================================================== */
+
+function decideStopLayout(ctx, tc, en) {
+    const lines = [];
+
+    const fontTC = "16px 新細明體";
+    const fontEN = "15px Arial Narrow";
+
+    ctx.font = fontTC;
+    const wTC = ctx.measureText(tc).width;
+
+    ctx.font = fontEN;
+    const wEN = ctx.measureText(en).width;
+
+    ctx.font = fontTC;
+    const wSpace = ctx.measureText(" ").width;
+
+    // Mode 1：中英同一行
+    if (en && wTC + wSpace + wEN <= STOP_LABEL_MAX_WIDTH) {
+        lines.push({
+            text: tc + " " + en,
+            font: fontTC,
+            scaleX: 1
+        });
+        return lines;
+    }
+
+    // Mode 2：中英分行
+    if (wTC <= STOP_LABEL_MAX_WIDTH && wEN <= STOP_LABEL_MAX_WIDTH) {
+        lines.push({ text: tc, font: fontTC, scaleX: 1 });
+        if (en) lines.push({ text: en, font: fontEN, scaleX: 1 });
+        return lines;
+    }
+
+    // Mode 3：分行 + 橫向壓縮
+    const scaleTC = Math.min(1, STOP_LABEL_MAX_WIDTH / wTC);
+    const scaleEN = en ? Math.min(1, STOP_LABEL_MAX_WIDTH / wEN) : 1;
+    const scale = Math.max(MIN_SCALE_X, Math.min(scaleTC, scaleEN));
+
+    lines.push({ text: tc, font: fontTC, scaleX: scale });
+    if (en) lines.push({ text: en, font: fontEN, scaleX: scale });
+
+    return lines;
+}
+
+/* ======================================================
+   繪製單個站名
+====================================================== */
+
+function drawStopLabel(ctx, x, y, stop) {
+    const lines = decideStopLayout(ctx, stop.tc, stop.en);
+    const lineHeight = 18;
+
+    let currentY = y;
+
+    ctx.textAlign = "left";
+    ctx.textBaseline = "alphabetic";
+    ctx.fillStyle = "#333";
+
+    lines.forEach(line => {
+        ctx.save();
+        ctx.font = line.font;
+        ctx.scale(line.scaleX, 1);
+        ctx.fillText(line.text, x / line.scaleX, currentY);
+        ctx.restore();
+        currentY += lineHeight;
+    });
+
+    return lines.length * lineHeight;
+}
+
+/* ======================================================
+   3. 生成路線圖（雙語站名）
+====================================================== */
 
 function generateImage() {
+    if (!currentBound || routeStops[currentBound].length === 0) return;
+
     const routeNo =
         document.getElementById("routeInput").value.toUpperCase();
     const price =
         document.getElementById("priceInput").value;
-    const stops = document
-        .getElementById("stationList")
-        .value
-        .split("\n")
-        .filter(s => s.trim() !== "");
 
-    if (stops.length === 0) return;
+    const stops = routeStops[currentBound];
 
     const padding = 50;
     const headerHeight = 100;
     const stopSpacing = 60;
     const circleRadius = 10;
-    const canvasWidth = 500;
+    const canvasWidth = 520;
     const canvasHeight =
         headerHeight + stops.length * stopSpacing + padding;
 
     canvas.width = canvasWidth;
     canvas.height = canvasHeight;
 
+    // 背景
     ctx.fillStyle = "#ffffff";
     ctx.fillRect(0, 0, canvasWidth, canvasHeight);
 
+    // Header
     ctx.fillStyle = "#e60012";
     ctx.fillRect(0, 0, canvasWidth, 80);
 
@@ -210,6 +307,7 @@ function generateImage() {
     const textX = 100;
     let startY = headerHeight + 30;
 
+    // 垂直線
     ctx.beginPath();
     ctx.moveTo(lineX, startY);
     ctx.lineTo(
@@ -220,24 +318,24 @@ function generateImage() {
     ctx.lineWidth = 5;
     ctx.stroke();
 
-    stops.forEach((stopName, index) => {
+    // 站點
+    stops.forEach((stop, index) => {
         const y = startY + index * stopSpacing;
 
         ctx.beginPath();
         ctx.arc(lineX, y, circleRadius, 0, 2 * Math.PI);
         ctx.fillStyle = "#ffffff";
         ctx.fill();
+        ctx.strokeStyle = "#e60012";
         ctx.stroke();
 
-        ctx.fillStyle = "#333";
-        ctx.font = "bold 18px Microsoft JhengHei";
-        ctx.fillText(`${index + 1}. ${stopName}`, textX, y + 6);
+        drawStopLabel(ctx, textX, y + 6, stop);
     });
 }
 
-/* =========================
+/* ======================================================
    4. 下載圖片
-========================= */
+====================================================== */
 
 function downloadImage() {
     const link = document.createElement("a");
