@@ -28,6 +28,8 @@ const CONTENT_H = CONTENT_Y_END - CONTENT_Y_START;
 const STOP_LABEL_MAX_WIDTH = 210;
 const MIN_SCALE_X = 0.85;
 
+const API_BASE = "https://kmbapi.wg7fg9sf3.workers.dev";
+
 /* ======================================================
    Canvas 初始化
 ====================================================== */
@@ -62,8 +64,8 @@ let currentService = null;
 ====================================================== */
 
 async function loadStopDatabase() {
-  const res = await fetch("https://data.etabus.gov.hk/v1/transport/kmb/stop");
-  const json = await res.json();
+const res = await fetch(`${API_BASE}/stop`);
+const json = await res.json();
 
   json.data.forEach(s => {
     stopMap[s.stop] = {
@@ -98,8 +100,8 @@ async function findRouteVariants() {
     return;
   }
 
-  const res = await fetch("https://data.etabus.gov.hk/v1/transport/kmb/route");
-  const json = await res.json();
+const res = await fetch(`${API_BASE}/route`);
+const json = await res.json();
 
   routeOptions.innerHTML = "";
   editorPanel.innerHTML = "<p class='hint'>請先選擇一個服務方向</p>";
@@ -152,9 +154,10 @@ async function findRouteVariants() {
 ====================================================== */
 
 async function loadStopsForService(service) {
-  const url = `https://data.etabus.gov.hk/v1/transport/kmb/route-stop/${service.route}/${service.bound}/${service.serviceType}`;
-  const res = await fetch(url);
-  const json = await res.json();
+const res = await fetch(
+  `${API_BASE}/route-stop/${service.route}/${service.bound}/${service.serviceType}`
+);
+const json = await res.json();
 
   service.routeItems = json.data
     .sort((a, b) => a.seq - b.seq)
