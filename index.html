@@ -1,54 +1,50 @@
 <!DOCTYPE html>
 <html lang="zh-HK">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>九巴路線圖生成器 (Unofficial)</title>
-    <link rel="stylesheet" href="style.css">
+  <meta charset="UTF-8" />
+  <title>KMB 路線圖生成器</title>
+  <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-    <div class="container">
-        <h1>🚌 九巴路線圖生成器</h1>
-        <p class="subtitle">非官方工具 | 資料來源: data.etabus.gov.hk</p>
 
-        <div class="control-panel">
-            <div class="input-group">
-                <h3>1. 搜尋路線</h3>
-                <div style="display: flex; gap: 10px;">
-                    <input type="text" id="routeInput" placeholder="輸入路線 (例: 960)" value="960" style="margin-bottom:0;">
-                    <button id="searchBtn" onclick="findRouteVariants()" style="width: auto; margin-bottom:0;">🔍 搜尋方向</button>
-                </div>
-                
-                <div id="routeOptionsArea" style="margin-top: 15px; display: flex; flex-direction: column; gap: 5px;">
-                    <p class="status" id="searchStatus">請輸入路線並按搜尋...</p>
-                </div>
+<h1>九巴路線圖生成器</h1>
 
-                <input type="hidden" id="boundInput">
-                <input type="hidden" id="serviceTypeInput">
-            </div>
+<div class="control-panel">
+  <label>
+    路線號碼：
+    <input id="routeInput" placeholder="例如：102">
+  </label>
 
-            <div class="input-group">
-                <h3>2. 編輯內容</h3>
-                <label>全程收費 ($): <input type="text" id="priceInput" value="--"></label>
-                <label>站點列表 (可手動修改):</label>
-                <textarea id="stationList" placeholder="選擇左側方向後，資料將自動載入..."></textarea>
-            </div>
+  <label>
+    全程收費：
+    <input id="priceInput" placeholder="例如：$6.2">
+  </label>
 
-            <div class="input-group">
-                <h3>3. 生成與下載</h3>
-                <button class="action-btn" onclick="generateImage()">🎨 生成圖片</button>
-                <button class="download-btn" onclick="downloadImage()">💾 下載圖片</button>
-            </div>
-        </div>
+  <button onclick="findRouteVariants()">搜尋路線</button>
+</div>
 
-        <div class="preview-area">
-            <h3>圖片預覽</h3>
-            <div class="canvas-container">
-                <canvas id="routeCanvas"></canvas>
-            </div>
-        </div>
-    </div>
+<p id="searchStatus" class="status"></p>
 
-    <script src="script.js"></script>
+<div id="routeOptionsArea" class="route-options"></div>
+
+<hr>
+
+<h2>站點及途經街道編輯</h2>
+<div id="editorPanel" class="editor-panel">
+  <p class="hint">請先選擇一個服務方向</p>
+</div>
+
+<canvas id="routeCanvas" width="954" height="1320"></canvas>
+
+<div class="actions">
+  <button onclick="downloadImage()">下載 PNG</button>
+</div>
+
+<p class="footer">
+  資料來源：九巴開放數據<br>
+  <span id="dataTimestamp"></span>
+</p>
+
+<script src="script.js"></script>
 </body>
 </html>
