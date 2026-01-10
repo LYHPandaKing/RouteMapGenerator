@@ -1,94 +1,154 @@
+/* ===== 基本設定 ===== */
+* {
+  box-sizing: border-box;
+}
+
 body {
-  font-family: system-ui, -apple-system, BlinkMacSystemFont;
-  margin: 20px;
+  margin: 0;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont,
+    "Segoe UI", Arial, sans-serif;
   background: #f6f6f6;
+  color: #222;
 }
 
-h1, h2 {
-  margin-bottom: 10px;
+/* ===== Header ===== */
+#siteHeader {
+  height: 60px;
+  background: #e60012;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  padding: 0 16px;
 }
 
-.control-panel label {
-  margin-right: 10px;
+#siteHeader h1 {
+  font-size: 18px;
+  margin: 0;
+}
+
+/* ===== App Layout ===== */
+#app {
+  display: flex;
+  align-items: flex-start;
+  height: calc(100vh - 60px);
+}
+
+/* ===== 路線圖區（左 / 上） ===== */
+#mapPane {
+  flex: 0 0 auto;
+  width: 954px;
+  padding: 8px;
+  position: sticky;
+  top: 60px;
+}
+
+#routeCanvas {
+  display: block;
+  background: #fff;
+  border: 1px solid #ccc;
+}
+
+/* ===== 控制面板（右 / 下） ===== */
+#controlPane {
+  flex: 1;
+  padding: 16px;
+  overflow-y: auto;
+  max-height: calc(100vh - 60px);
+}
+
+.panel {
+  background: #fff;
+  border: 1px solid #ddd;
+  padding: 12px;
+  margin-bottom: 16px;
+}
+
+.panel h3 {
+  margin: 0 0 8px;
+  font-size: 15px;
+}
+
+label {
+  font-size: 13px;
+  color: #555;
+}
+
+input[type="text"] {
+  width: 100%;
+  padding: 6px 8px;
+  margin: 6px 0;
+  font-size: 14px;
 }
 
 button {
   padding: 6px 12px;
+  font-size: 14px;
   cursor: pointer;
 }
 
-.status {
-  margin: 10px 0;
-}
-
-.route-options {
+/* ===== 路線方向按鈕 ===== */
+#routeOptions {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
 }
 
 .route-option-btn {
-  background: #fff;
   border: 1px solid #ccc;
-  padding: 8px;
+  background: #fff;
+  padding: 10px;
   text-align: left;
+  cursor: pointer;
+}
+
+.route-option-btn:hover {
+  background: #f5f5f5;
 }
 
 .route-option-btn.active {
+  background: #e60012;
+  color: #fff;
   border-color: #e60012;
-  background: #fff0f0;
 }
 
-.editor-panel {
-  background: #fff;
-  border: 1px solid #ccc;
-  padding: 10px;
-  margin: 15px 0;
+.route-main {
+  font-size: 15px;
+  font-weight: 600;
 }
 
-.editor-stop {
-  border-bottom: 1px dashed #ddd;
-  padding: 8px 0;
+.route-sub {
+  font-size: 12px;
+  opacity: 0.9;
 }
 
-.editor-stop h3 {
-  margin: 5px 0;
-  font-size: 14px;
-}
-
-.editor-row {
-  display: flex;
-  gap: 6px;
-  margin: 4px 0;
-}
-
-.editor-row input {
-  flex: 1;
-}
-
-.street-item {
-  margin-left: 20px;
+/* ===== Editor 提示 ===== */
+.hint {
   font-size: 13px;
+  color: #777;
 }
 
-.editor-actions button {
-  font-size: 12px;
-  margin-top: 4px;
-}
+/* ===== Mobile 版 ===== */
+@media (max-width: 768px) {
+  #app {
+    flex-direction: column;
+    height: auto;
+  }
 
-canvas {
-  display: block;
-  margin: 20px auto;
-  background: #fff;
-  border: 1px solid #ccc;
-}
+  #mapPane {
+    position: static;
+    width: 100%;
+    display: flex;
+    justify-content: center;
+  }
 
-.actions {
-  text-align: center;
-}
+  #routeCanvas {
+    width: 100%;
+    height: auto;
+    max-width: 954px;
+  }
 
-.footer {
-  font-size: 12px;
-  color: #666;
-  text-align: center;
+  #controlPane {
+    max-height: none;
+    overflow: visible;
+  }
 }

@@ -3,48 +3,52 @@
 <head>
   <meta charset="UTF-8" />
   <title>KMB 路線圖生成器</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <link rel="stylesheet" href="style.css" />
 </head>
+
 <body>
+  <header id="siteHeader">
+    <h1>KMB 路線圖生成器</h1>
+  </header>
 
-<h1>九巴路線圖生成器</h1>
+  <main id="app">
+    <!-- 左側 / 上方：路線圖 -->
+    <section id="mapPane">
+      <canvas
+        id="routeCanvas"
+        width="954"
+        height="1320"
+      ></canvas>
+    </section>
 
-<div class="control-panel">
-  <label>
-    路線號碼：
-    <input id="routeInput" placeholder="例如：102">
-  </label>
+    <!-- 右側 / 下方：控制面板 -->
+    <section id="controlPane">
 
-  <label>
-    全程收費：
-    <input id="priceInput" placeholder="例如：$6.2">
-  </label>
+      <!-- 路線搜尋 -->
+      <div class="panel">
+        <label>路線號碼</label>
+        <input id="routeInput" type="text" placeholder="例如：102" />
+        <button id="searchRouteBtn">搜尋</button>
+      </div>
 
-  <button onclick="findRouteVariants()">搜尋路線</button>
-</div>
+      <!-- 服務方向選擇 -->
+      <div class="panel">
+        <h3>服務方向</h3>
+        <div id="routeOptions"></div>
+      </div>
 
-<p id="searchStatus" class="status"></p>
+      <!-- 站點 / 街道編輯 -->
+      <div class="panel">
+        <h3>站點及街道編輯</h3>
+        <div id="editorPanel">
+          <p class="hint">請先選擇一個服務方向</p>
+        </div>
+      </div>
 
-<div id="routeOptionsArea" class="route-options"></div>
+    </section>
+  </main>
 
-<hr>
-
-<h2>站點及途經街道編輯</h2>
-<div id="editorPanel" class="editor-panel">
-  <p class="hint">請先選擇一個服務方向</p>
-</div>
-
-<canvas id="routeCanvas" width="954" height="1320"></canvas>
-
-<div class="actions">
-  <button onclick="downloadImage()">下載 PNG</button>
-</div>
-
-<p class="footer">
-  資料來源：九巴開放數據<br>
-  <span id="dataTimestamp"></span>
-</p>
-
-<script src="script.js"></script>
+  <script src="script.js"></script>
 </body>
 </html>
