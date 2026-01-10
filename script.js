@@ -44,7 +44,13 @@ async function hashData(obj) {
 
 function normalizeStopData(data) {
   return data
-    .map(s => ({ stop: s.stop, tc: s.name_tc, en: s.name_en }))
+    .map(s => ({
+      stop: s.stop,
+      tc: s.name_tc,
+      en: s.name_en,
+      lat: parseFloat(s.lat),
+      lng: parseFloat(s.long)
+    }))
     .sort((a, b) => a.stop.localeCompare(b.stop));
 }
 
@@ -74,7 +80,16 @@ async function loadStopDatabaseSmart() {
 
 window.onload = async () => {
   const data = await loadStopDatabaseSmart();
-  data.forEach(s => stopMap[s.stop] = { tc: s.tc, en: s.en });
+
+  data.forEach(s => {
+    stopMap[s.stop] = {
+      tc: s.tc,
+      en: s.en,
+      lat: s.lat,
+      lng: s.lng
+    };
+  });
+
   stopMapReady = true;
 
   document.getElementById("dataTimestamp").innerText =
@@ -127,6 +142,12 @@ async function findRouteVariants() {
     btn.innerText = service.label;
 
     btn.onclick = async () => {
+      document
+        .querySelectorAll(".route-option-btn")
+        .forEach(b => b.classList.remove("active"));
+
+      btn.classList.add("active");
+
       currentService = service;
       await loadStopsForService(service);
       renderEditorPanel(service);
@@ -148,9 +169,14 @@ async function loadStopsForService(service) {
     .sort((a, b) => a.seq - b.seq)
     .map(s => ({
       type: "stop",
+      stopId: s.stop,
       tc: stopMap[s.stop]?.tc || s.stop,
       en: stopMap[s.stop]?.en || ""
     }));
+
+  if (!service.routeItems.length) {
+    alert("未能載入站點資料");
+  }
 }
 
 /* ======================================================
@@ -161,7 +187,7 @@ function renderEditorPanel(service) {
   const panel = document.getElementById("editorPanel");
   panel.innerHTML = "";
 
-  if (!service) {
+  if (!service || !service.routeItems) {
     panel.innerHTML = "<p class='hint'>請先選擇一個服務方向</p>";
     return;
   }
@@ -190,7 +216,11 @@ function renderEditorPanel(service) {
     inputs[1].oninput = e => { item.en = e.target.value; generateImage(); };
 
     box.querySelector("button").onclick = () => {
-      service.routeItems.splice(index + 1, 0, { type: "street", tc: "", en: "" });
+      service.routeItems.splice(index + 1, 0, {
+        type: "street",
+        tc: "",
+        en: ""
+      });
       renderEditorPanel(service);
       generateImage();
     };
@@ -198,6 +228,7 @@ function renderEditorPanel(service) {
     let i = index + 1;
     while (service.routeItems[i]?.type === "street") {
       const street = service.routeItems[i];
+
       const row = document.createElement("div");
       row.className = "street-item editor-row";
       row.innerHTML = `
@@ -252,7 +283,10 @@ function decideStopLayout(tc, en) {
 
   const scale = Math.max(
     MIN_SCALE_X,
-    Math.min(STOP_LABEL_MAX_WIDTH / wTC, en ? STOP_LABEL_MAX_WIDTH / wEN : 1)
+    Math.min(
+      STOP_LABEL_MAX_WIDTH / wTC,
+      en ? STOP_LABEL_MAX_WIDTH / wEN : 1
+    )
   );
 
   const out = [{ text: tc, font: fontTC, scaleX: scale }];
@@ -277,7 +311,10 @@ function drawRenderGroup(x, anchorY, item) {
 }
 
 function generateImage() {
-  if (!currentService) return;
+  if (!currentService || !currentService.routeItems) return;
+
+  const items = currentService.routeItems;
+  if (!items.length) return;
 
   ctx.clearRect(0, 0, CANVAS_W, CANVAS_H);
   ctx.fillStyle = "#fff";
@@ -287,7 +324,6 @@ function generateImage() {
   ctx.strokeRect(boxX, 0, 534, TOP_BOX_H);
   ctx.strokeRect(boxX, MAP_H - BOTTOM_BOX_H, 534, BOTTOM_BOX_H);
 
-  const items = currentService.routeItems;
   if (items.length < 2) return;
 
   const usable = MAP_H - TOP_BOX_H - BOTTOM_BOX_H;
