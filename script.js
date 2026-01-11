@@ -154,18 +154,56 @@ const json = await res.json();
 ====================================================== */
 
 async function loadStopsForService(service) {
-const res = await fetch(
-  `${API_BASE}/route-stop/${service.route}/${service.bound}/${service.serviceType}`
-);
-const json = await res.json();
+  try {
+    const res = await fetch(
+      `${API_BASE}/route-stop/${service.route}/${service.bound}/${service.serviceType}`
+    );
 
-  service.routeItems = json.data
-    .sort((a, b) => a.seq - b.seq)
-    .map(s => ({
-      type: "stop",
-      tc: stopMap[s.stop]?.tc || s.stop,
-      en: stopMap[s.stop]?.en || ""
-    }));
+    if (!res.ok) {
+      console.warn("route-stop HTTP 失敗", res.status);
+      service.routeItems = [];
+      return;
+    }
+
+    const json = await res.json();
+
+    // === 關鍵防守：KMB API 經常回 data: null ===
+    if (!json || !Array.isArray(json.data)) {
+      console.warn(
+        "此服務沒有官方站點資料",
+        service.route,
+        service.bound,
+        service.serviceType,
+        json
+      );
+
+      // 視為「有效服務，但無站點」
+      service.routeItems = [];
+      return;
+    }
+
+    // === 正常情況 ===
+    service.routeItems = json.data
+      .slice() // 保險，避免改原 array
+      .sort((a, b) => a.seq - b.seq)
+      .map(s => ({
+        type: "stop",
+        stopId: s.stop,
+        tc: stopMap[s.stop]?.tc || s.stop,
+        en: stopMap[s.stop]?.en || ""
+      }));
+
+    console.log(
+      "成功載入站點",
+      service.route,
+      service.bound,
+      service.serviceType,
+      service.routeItems.length
+    );
+  } catch (err) {
+    console.error("loadStopsForService 發生錯誤", err);
+    service.routeItems = [];
+  }
 }
 
 /* ======================================================
