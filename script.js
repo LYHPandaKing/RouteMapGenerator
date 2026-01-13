@@ -1,313 +1,210 @@
-/* ======================================================
-   安全工具
-====================================================== */
-
-function uid() {
-  return Date.now().toString(36) + Math.random().toString(36).slice(2);
-}
-
-/* ======================================================
-   固定尺寸與常數（Canvas 世界）
-====================================================== */
-
-const CANVAS_W = 954;
-const CANVAS_H = 1320;
-
-const MAP_X = 17;
-const MAP_Y = 15;
-const MAP_W = 538;
-const MAP_H = 1237;
-
-const TOP_BOX_H = 57;
-const BOTTOM_BOX_H = 53;
-
-const CONTENT_Y_START = 18 + TOP_BOX_H; // 75
-const CONTENT_Y_END = 1196;
-const CONTENT_H = CONTENT_Y_END - CONTENT_Y_START;
-
-const STOP_LABEL_MAX_WIDTH = 210;
-const MIN_SCALE_X = 0.85;
-
-const API_BASE = "https://kmbapi.wg7fg9sf3.workers.dev";
-
-/* ======================================================
-   Canvas 初始化
-====================================================== */
-
-const canvas = document.getElementById("routeCanvas");
-const ctx = canvas.getContext("2d");
-
-canvas.width = CANVAS_W;
-canvas.height = CANVAS_H;
-
-/* ======================================================
-   DOM
-====================================================== */
-
-const routeInput = document.getElementById("routeInput");
-const searchRouteBtn = document.getElementById("searchRouteBtn");
-const routeOptions = document.getElementById("routeOptions");
-const editorPanel = document.getElementById("editorPanel");
-
-/* ======================================================
-   狀態
-====================================================== */
-
+// 定義全域變數
 let stopMap = {};
-let stopMapReady = false;
+const canvas = document.getElementById('routeCanvas');
+const ctx = canvas.getContext('2d');
 
-let allServices = [];
-let currentService = null;
+// 1. 初始化：載入車站資料庫
+window.onload = async function() {
+    updateStatus("正在下載車站資料庫...");
+    try {
+        const response = await fetch('https://data.etabus.gov.hk/v1/transport/kmb/stop');
+        const json = await response.json();
+        if (json.data) {
+            json.data.forEach(stop => {
+                stopMap[stop.stop] = stop.name_tc;
+            });
+            updateStatus("系統就緒，請搜尋路線。");
+        } else {
+            updateStatus("車站資料載入異常");
+        }
+    } catch (error) {
+        console.error(error);
+        updateStatus("錯誤：無法連線至資料庫");
+    }
+};
 
-/* ======================================================
-   載入 stop database（每次重新下載）
-====================================================== */
-
-async function loadStopDatabase() {
-const res = await fetch(`${API_BASE}/stop`);
-const json = await res.json();
-
-  json.data.forEach(s => {
-    stopMap[s.stop] = {
-      tc: s.name_tc,
-      en: s.name_en
-    };
-  });
-
-  stopMapReady = true;
+function updateStatus(msg) {
+    const el = document.getElementById('statusMsg');
+    if (el) el.innerText = msg;
 }
 
-/* ======================================================
-   初始化
-====================================================== */
-
-window.addEventListener("DOMContentLoaded", async () => {
-  await loadStopDatabase();
-  searchRouteBtn.onclick = findRouteVariants;
-  drawEmptyTemplate();
-});
-
-/* ======================================================
-   搜尋路線 → services
-====================================================== */
-
+// 2. 搜尋路線
 async function findRouteVariants() {
-  if (!stopMapReady) return;
+    const routeInput = document.getElementById('routeInput');
+    const route = routeInput.value.trim().toUpperCase();
+    if (!route) { alert("請輸入路線號碼"); return; }
 
-  const route = routeInput.value.trim().toUpperCase();
-  if (!route) {
-    alert("請輸入路線號碼");
-    return;
-  }
+    const container = document.getElementById('routeOptionsArea');
+    container.innerHTML = '<p class="status">正在搜尋...</p>';
 
-const res = await fetch(`${API_BASE}/route`);
-const json = await res.json();
+    try {
+        // 使用官方 API
+        const response = await fetch(`https://data.etabus.gov.hk/v1/transport/kmb/route/${route}`);
+        const json = await response.json();
 
-  routeOptions.innerHTML = "";
-  editorPanel.innerHTML = "<p class='hint'>請先選擇一個服務方向</p>";
+        if (!json.data || json.data.length === 0) {
+            container.innerHTML = '<p class="status" style="color:red;">找不到此路線。</p>';
+            return;
+        }
 
-  allServices = [];
-  currentService = null;
+        container.innerHTML = ''; // 清空狀態
 
-  json.data.filter(r => r.route === route).forEach(v => {
-    const service = {
-      id: uid(),
-      route: v.route,
-      bound: v.bound,
-      serviceType: v.service_type,
-      orig: v.orig_tc,
-      dest: v.dest_tc,
-      routeItems: []
-    };
+        // 產生按鈕
+        json.data.forEach(variant => {
+            // 【修正 422 錯誤的核心】
+            // 雖然 Data Dictionary 說 bound 是 "O"/"I"，但 API 請求必須用全寫
+            let apiBound = "outbound"; // 預設值
+            if (variant.bound === 'I') {
+                apiBound = "inbound";
+            } else if (variant.bound === 'O') {
+                apiBound = "outbound";
+            }
 
-    allServices.push(service);
+            const boundName = variant.bound === 'O' ? '去程' : '回程';
+            
+            const btn = document.createElement('button');
+            btn.className = 'variant-btn'; 
+            // 顯示給用家看
+            btn.innerHTML = `<strong>往 ${variant.dest_tc}</strong><br><small>${boundName} | 服務類別: ${variant.service_type}</small>`;
+            
+            // 點擊時，傳送「轉換後」的 apiBound
+            btn.onclick = () => {
+                loadStopsForService(variant.route, apiBound, variant.service_type);
+            };
 
-    const btn = document.createElement("button");
-    btn.className = "route-option-btn";
-    btn.innerHTML = `
-      <div class="route-main">${v.orig_tc} → ${v.dest_tc}</div>
-      <div class="route-sub">
-        ${v.bound === "O" ? "去程" : "回程"}｜
-        ${v.service_type === "1" ? "正常班" : "特別班"}
-      </div>
-    `;
+            container.appendChild(btn);
+        });
 
-    btn.onclick = async () => {
-      document
-        .querySelectorAll(".route-option-btn")
-        .forEach(b => b.classList.remove("active"));
-
-      btn.classList.add("active");
-
-      currentService = service;
-      await loadStopsForService(service);
-      renderEditorPanel(service);
-      generateImage();
-    };
-
-    routeOptions.appendChild(btn);
-  });
+    } catch (error) {
+        console.error(error);
+        container.innerHTML = '<p class="status">搜尋失敗，請檢查網絡。</p>';
+    }
 }
 
-/* ======================================================
-   載入站點
-====================================================== */
-
-async function loadStopsForService(service) {
-  try {
-    const res = await fetch(
-      `${API_BASE}/route-stop/${service.route}/${service.bound}/${service.serviceType}`
-    );
-
-    if (!res.ok) {
-      console.warn("route-stop HTTP 失敗", res.status);
-      service.routeItems = [];
-      return;
+// 3. 載入站點
+async function loadStopsForService(route, bound, serviceType) {
+    updateStatus(`正在載入 ${route} (${bound}) 資料...`);
+    
+    // 再次檢查，確保不會傳送 "O" 或 "I" 給 API
+    if (bound === 'O' || bound === 'I') {
+        alert("程式錯誤：參數未轉換");
+        return;
     }
 
-    const json = await res.json();
+    const url = `https://data.etabus.gov.hk/v1/transport/kmb/route-stop/${route}/${bound}/${serviceType}`;
+    
+    try {
+        const response = await fetch(url);
+        
+        if (!response.ok) {
+            throw new Error(`API 錯誤: ${response.status} (請檢查是否為 422)`);
+        }
 
-    // === 關鍵防守：KMB API 經常回 data: null ===
-    if (!json || !Array.isArray(json.data)) {
-      console.warn(
-        "此服務沒有官方站點資料",
-        service.route,
-        service.bound,
-        service.serviceType,
-        json
-      );
+        const json = await response.json();
 
-      // 視為「有效服務，但無站點」
-      service.routeItems = [];
-      return;
+        if (!json.data || json.data.length === 0) {
+            updateStatus("此路線無站點資料。");
+            return;
+        }
+
+        // 排序
+        const stops = json.data.sort((a, b) => a.seq - b.seq);
+        
+        // 轉換名稱
+        const stopNames = stops.map(item => stopMap[item.stop] || item.stop);
+
+        // 填入列表
+        const textarea = document.getElementById('stationList');
+        if (textarea) {
+            textarea.value = stopNames.join('\n');
+            // 自動生成圖片
+            generateImage();
+            updateStatus(`成功載入 ${stopNames.length} 個站點！`);
+        }
+
+    } catch (error) {
+        console.error("載入站點錯誤:", error);
+        updateStatus("載入失敗: " + error.message);
     }
-
-    // === 正常情況 ===
-    service.routeItems = json.data
-      .slice() // 保險，避免改原 array
-      .sort((a, b) => a.seq - b.seq)
-      .map(s => ({
-        type: "stop",
-        stopId: s.stop,
-        tc: stopMap[s.stop]?.tc || s.stop,
-        en: stopMap[s.stop]?.en || ""
-      }));
-
-    console.log(
-      "成功載入站點",
-      service.route,
-      service.bound,
-      service.serviceType,
-      service.routeItems.length
-    );
-  } catch (err) {
-    console.error("loadStopsForService 發生錯誤", err);
-    service.routeItems = [];
-  }
 }
 
-/* ======================================================
-   編輯 UI
-====================================================== */
-
-function renderEditorPanel(service) {
-  editorPanel.innerHTML = "";
-
-  service.routeItems.forEach((item, index) => {
-    const box = document.createElement("div");
-    box.className = "editor-stop";
-
-    box.innerHTML = `
-      <h3>站點 ${index + 1}</h3>
-      <div class="editor-row">
-        <input value="${item.tc}">
-        <input value="${item.en}">
-      </div>
-    `;
-
-    const inputs = box.querySelectorAll("input");
-    inputs[0].oninput = e => { item.tc = e.target.value; generateImage(); };
-    inputs[1].oninput = e => { item.en = e.target.value; generateImage(); };
-
-    editorPanel.appendChild(box);
-  });
-}
-
-/* ======================================================
-   排版工具
-====================================================== */
-
-function decideStopLayout(tc, en) {
-  const lines = [];
-  const fontTC = "16px serif";
-  const fontEN = "15px sans-serif";
-
-  ctx.font = fontTC;
-  const wTC = ctx.measureText(tc).width;
-
-  ctx.font = fontEN;
-  const wEN = en ? ctx.measureText(en).width : 0;
-
-  if (en && wTC + 6 + wEN <= STOP_LABEL_MAX_WIDTH) {
-    return [{ text: tc + " " + en, font: fontTC, scaleX: 1 }];
-  }
-
-  const out = [{ text: tc, font: fontTC, scaleX: 1 }];
-  if (en) out.push({ text: en, font: fontEN, scaleX: 1 });
-  return out;
-}
-
-/* ======================================================
-   繪圖
-====================================================== */
-
-function drawEmptyTemplate() {
-  ctx.clearRect(0, 0, CANVAS_W, CANVAS_H);
-  ctx.fillStyle = "#fff";
-  ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
-
-  ctx.strokeStyle = "#ccc";
-  ctx.strokeRect(MAP_X + 2, MAP_Y, 534, TOP_BOX_H);
-  ctx.strokeRect(MAP_X + 2, MAP_Y + MAP_H - BOTTOM_BOX_H, 534, BOTTOM_BOX_H);
-}
-
+// 4. 生成圖片
 function generateImage() {
-  if (!currentService) return;
+    const routeNo = document.getElementById('routeInput').value.toUpperCase();
+    const price = document.getElementById('priceInput').value;
+    const stopsText = document.getElementById('stationList').value;
+    const stops = stopsText.split('\n').filter(s => s.trim() !== "");
+    
+    // 【修正 DOMException 的核心】
+    // 安全地讀取字體，如果找不到元素就用預設值，防止 iPad 崩潰
+    let selectedFont = "sans-serif";
+    const fontSelect = document.getElementById('fontSelect');
+    if (fontSelect) {
+        selectedFont = fontSelect.value;
+    }
 
-  drawEmptyTemplate();
+    if (stops.length === 0) return;
 
-  const items = currentService.routeItems;
-  if (items.length < 2) return;
+    // 畫布設定
+    const padding = 50;
+    const headerHeight = 100;
+    const stopSpacing = 60;
+    const canvasWidth = 500;
+    const canvasHeight = headerHeight + (stops.length * stopSpacing) + padding;
 
-  const spacing = CONTENT_H / (items.length - 1);
-  const lineX = MAP_X + 40;
-  const textX = MAP_X + 80;
+    canvas.width = canvasWidth;
+    canvas.height = canvasHeight;
 
-  ctx.strokeStyle = "#e60012";
-  ctx.lineWidth = 5;
+    // 背景
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, canvasWidth, canvasHeight);
 
-  ctx.beginPath();
-  ctx.moveTo(lineX, CONTENT_Y_START);
-  ctx.lineTo(lineX, CONTENT_Y_END);
-  ctx.stroke();
+    // 紅頭牌
+    ctx.fillStyle = "#e60012";
+    ctx.fillRect(0, 0, canvasWidth, 80);
+    
+    // 路線號
+    ctx.fillStyle = "#ffffff";
+    ctx.font = `bold 40px ${selectedFont}`;
+    ctx.fillText(routeNo, 20, 55);
+    
+    // 收費
+    ctx.font = `20px ${selectedFont}`;
+    ctx.fillText("全程收費: $" + price, 150, 50);
 
-  items.forEach((item, i) => {
-    const y = CONTENT_Y_START + i * spacing;
+    // 路線線條
+    const lineX = 60;
+    const textX = 100;
+    let startY = headerHeight + 30;
 
     ctx.beginPath();
-    ctx.arc(lineX, y, 9, 0, Math.PI * 2);
-    ctx.fillStyle = "#fff";
-    ctx.fill();
+    ctx.moveTo(lineX, startY);
+    ctx.lineTo(lineX, startY + ((stops.length - 1) * stopSpacing));
+    ctx.strokeStyle = "#e60012";
+    ctx.lineWidth = 5;
     ctx.stroke();
 
-    const lines = decideStopLayout(item.tc, item.en);
-    let yy = y - (lines.length * 18) / 2 + 18;
+    // 站點圈圈與文字
+    stops.forEach((stopName, index) => {
+        const y = startY + (index * stopSpacing);
 
-    lines.forEach(line => {
-      ctx.font = line.font;
-      ctx.fillStyle = "#333";
-      ctx.fillText(line.text, textX, yy);
-      yy += 18;
+        ctx.beginPath();
+        ctx.arc(lineX, y, 10, 0, 2 * Math.PI);
+        ctx.fillStyle = "#ffffff";
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.fillStyle = "#333333";
+        ctx.font = `bold 18px ${selectedFont}`;
+        ctx.fillText((index + 1) + ". " + stopName, textX, y + 6);
     });
-  });
+}
+
+// 5. 下載圖片
+function downloadImage() {
+    const link = document.createElement('a');
+    const routeNo = document.getElementById('routeInput').value || "route";
+    link.download = `KMB_${routeNo}.png`;
+    link.href = canvas.toDataURL("image/png");
+    link.click();
 }
