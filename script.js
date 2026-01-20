@@ -1,28 +1,24 @@
-// 【關鍵設定】使用你的 Cloudflare Worker 代理來避開 CORS 錯誤
-const API_BASE = 'https://kmbapi.wg7fg9sf3.workers.dev';
+// 代理伺服器網址
+const API_PROXY = 'https://kmbapi.wg7fg9sf3.workers.dev';
 
 let stopMap = {};
 const canvas = document.getElementById('routeCanvas');
 const ctx = canvas.getContext('2d');
 
-// 1. 初始化
+// 1. 初始化車站名稱數據庫
 window.onload = async function() {
-    updateStatus("正在連接數據庫...");
+    updateStatus("正在下載車站清單...");
     try {
-        // 取得車站清單 (透過代理)
-        const response = await fetch(`${API_BASE}/stop`);
-        if (!response.ok) throw new Error("無法連接代理伺服器");
-        
+        const response = await fetch(`${API_PROXY}/stop`);
         const json = await response.json();
         if (json.data) {
-            json.data.forEach(stop => {
-                stopMap[stop.stop] = stop.name_tc;
-            });
-            updateStatus("系統就緒，請搜尋路線。");
+            [span_8](start_span)[span_9](start_span)// 建立 ID 對應名稱的 Map[span_8](end_span)[span_9](end_span)
+            json.data.forEach(stop => { stopMap[stop.stop] = stop.name_tc; });
+            updateStatus("系統就緒");
         }
     } catch (e) {
+        updateStatus("車站資料載入失敗");
         console.error(e);
-        updateStatus("⚠️ 初始化失敗: 請檢查網絡");
     }
 };
 
@@ -35,145 +31,115 @@ function updateStatus(msg) {
 async function findRouteVariants() {
     const route = document.getElementById('routeInput').value.trim().toUpperCase();
     const container = document.getElementById('routeOptionsArea');
-    
-    if (!route) { alert("請輸入路線號碼"); return; }
+    if (!route) return;
+
     container.innerHTML = '搜尋中...';
 
     try {
-        // 透過代理搜尋路線
-        const response = await fetch(`${API_BASE}/route/${route}`);
+        const response = await fetch(`${API_PROXY}/route/${route}`);
         const json = await response.json();
 
         if (!json.data || json.data.length === 0) {
-            container.innerHTML = '找不到此路線';
+            container.innerHTML = '找不到路線';
             return;
         }
 
-        container.innerHTML = ''; // 清空
-
-        // 產生按鈕
+        container.innerHTML = '';
         json.data.forEach(variant => {
-            // 【核心修正】在這裡將 O/I 轉成英文全寫
-            // 這樣傳給代理伺服器的就會是 correctBound (outbound)
-            let correctBound = 'outbound'; 
-            if (variant.bound === 'I') correctBound = 'inbound';
-            
-            const boundText = variant.bound === 'O' ? '去程' : '回程';
+            [span_10](start_span)[span_11](start_span)// 【核心修正】將文檔定義的 O/I 轉為 API 請求要求的全寫[span_10](end_span)[span_11](end_span)
+            let apiBound = (variant.bound === 'I') ? 'inbound' : 'outbound';
+            const boundLabel = (variant.bound === 'I') ? '回程' : '去程';
 
             const btn = document.createElement('button');
             btn.className = 'variant-btn';
-            btn.innerHTML = `<strong>往 ${variant.dest_tc}</strong><br><small>${boundText} (類別 ${variant.service_type})</small>`;
+            btn.innerHTML = `<strong>往 ${variant.dest_tc}</strong><br><small>${boundLabel} (類別 ${variant.service_type})</small>`;
             
-            // 綁定點擊事件，傳送正確的英文參數
-            btn.onclick = () => {
-                fetchStops(variant.route, correctBound, variant.service_type);
-            };
+            // 點擊後發送正確的英文參數 (outbound/inbound)
+            btn.onclick = () => fetchStops(variant.route, apiBound, variant.service_type);
             container.appendChild(btn);
         });
-
     } catch (e) {
-        console.error(e);
-        container.innerHTML = '搜尋失敗 (CORS或代理錯誤)';
+        container.innerHTML = '搜尋發生錯誤';
     }
 }
 
-// 3. 獲取站點
+[span_12](start_span)// 3. 獲取特定服務的站點[span_12](end_span)
 async function fetchStops(route, bound, serviceType) {
-    updateStatus(`載入中...`);
+    updateStatus("載入站點中...");
     
-    // 【雙重保險】確保不會發送 "O" 出去
-    if (bound === 'O' || bound === 'I') {
-        alert("程式邏輯錯誤：參數未轉換，請檢查代碼");
+    // 安全檢查：防止發送簡寫代碼導致 422 錯誤
+    if (bound.length === 1) {
+        alert("程式邏輯錯誤：嘗試發送簡寫方向代碼 " + bound);
         return;
     }
 
-    // 組合代理網址： .../route-stop/960/outbound/1
-    const url = `${API_BASE}/route-stop/${route}/${bound}/${serviceType}`;
-    console.log("正在請求:", url); // 除錯用
-
     try {
+        const url = `${API_PROXY}/route-stop/${route}/${bound}/${serviceType}`;
         const response = await fetch(url);
         
-        // 如果這裡報 422，代表 bound 還是錯的；如果是 404，代表代理路徑錯
-        if (!response.ok) throw new Error(`API 錯誤: ${response.status}`);
+        if (!response.ok) throw new Error(`API 回傳錯誤: ${response.status}`);
         
         const json = await response.json();
         
-        if (!json.data) {
-            updateStatus("沒有站點資料");
-            return;
-        }
-
-        // 排序並轉換名稱
+        [span_13](start_span)// 排序並提取站名[span_13](end_span)
         const stops = json.data.sort((a, b) => a.seq - b.seq);
         const names = stops.map(s => stopMap[s.stop] || s.stop);
         
         document.getElementById('stationList').value = names.join('\n');
         generateImage();
-        updateStatus(`成功載入 ${names.length} 個站點`);
-
+        updateStatus(`載入成功: ${names.length} 站`);
     } catch (e) {
-        console.error(e);
         updateStatus("載入失敗: " + e.message);
     }
 }
 
-// 4. 繪圖 (包含 iPad 防崩潰修正)
+// 4. 繪製路線圖
 function generateImage() {
     const routeNo = document.getElementById('routeInput').value.toUpperCase();
     const price = document.getElementById('priceInput').value;
     const stops = document.getElementById('stationList').value.split('\n').filter(s => s.trim() !== "");
     
-    // 檢查字體選單是否存在
-    const fontEl = document.getElementById('fontSelect');
-    const selectedFont = fontEl ? fontEl.value : "sans-serif";
+    // 安全讀取 DOM，防止 iPad 崩潰
+    const fontSelect = document.getElementById('fontSelect');
+    const selectedFont = fontSelect ? fontSelect.value : "sans-serif";
 
     if (stops.length === 0) return;
 
-    // 畫布設定
     const spacing = 60;
     canvas.width = 500;
     canvas.height = 150 + (stops.length * spacing);
 
-    // 白底
+    // 背景與標題
     ctx.fillStyle = "#ffffff";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-    // 紅色標題
     ctx.fillStyle = "#e60012";
     ctx.fillRect(0, 0, canvas.width, 80);
     
-    // 文字
     ctx.fillStyle = "#ffffff";
     ctx.font = `bold 40px ${selectedFont}`;
     ctx.fillText(routeNo, 20, 55);
-    
     ctx.font = `20px ${selectedFont}`;
     ctx.fillText(`全程收費: $${price}`, 150, 50);
 
-    // 線條
-    ctx.strokeStyle = "#e60012";
-    ctx.lineWidth = 5;
+    // 繪製路徑線
     const lineX = 60;
     const startY = 120;
-    
+    ctx.strokeStyle = "#e60012";
+    ctx.lineWidth = 6;
     ctx.beginPath();
     ctx.moveTo(lineX, startY);
     ctx.lineTo(lineX, startY + (stops.length - 1) * spacing);
     ctx.stroke();
 
-    // 站點
+    // 繪製圓點與站名
     stops.forEach((name, i) => {
         const y = startY + (i * spacing);
-        
-        // 圓點
         ctx.beginPath();
-        ctx.arc(lineX, y, 8, 0, Math.PI * 2);
+        ctx.arc(lineX, y, 10, 0, Math.PI * 2);
         ctx.fillStyle = "#ffffff";
         ctx.fill();
         ctx.stroke();
         
-        // 站名
         ctx.fillStyle = "#333";
         ctx.font = `bold 18px ${selectedFont}`;
         ctx.fillText(name, 100, y + 7);
@@ -182,7 +148,7 @@ function generateImage() {
 
 function downloadImage() {
     const link = document.createElement('a');
-    link.download = `bus_route.png`;
+    link.download = `KMB_${Date.now()}.png`;
     link.href = canvas.toDataURL();
     link.click();
 }
