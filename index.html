@@ -1,54 +1,55 @@
 <!DOCTYPE html>
 <html lang="zh-HK">
 <head>
-  <meta charset="UTF-8" />
-  <title>KMB 路線圖生成器</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <link rel="stylesheet" href="style.css" />
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>九巴路線圖生成器</title>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+HK:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
 </head>
-
 <body>
-  <header id="siteHeader">
-    <h1>KMB 路線圖生成器</h1>
-  </header>
+    <div class="container">
+        <h1>🚌 九巴路線圖生成器</h1>
+        
+        <div class="control-panel">
+            <div class="input-group">
+                <h3>1. 搜尋路線</h3>
+                <div class="search-box">
+                    <input type="text" id="routeInput" placeholder="例: 960" value="960">
+                    <button type="button" onclick="findRouteVariants()">🔍 搜尋</button>
+                </div>
+                <div id="routeOptionsArea" class="options-container">
+                    <p class="status">請輸入路線號碼...</p>
+                </div>
+            </div>
 
-  <main id="app">
-    <!-- 左側 / 上方：路線圖 -->
-    <section id="mapPane">
-      <canvas
-        id="routeCanvas"
-        width="954"
-        height="1320"
-      ></canvas>
-    </section>
+            <div class="input-group">
+                <h3>2. 設定</h3>
+                <label>收費 ($): <input type="text" id="priceInput" value="--"></label>
+                
+                <label>字體:</label>
+                <select id="fontSelect" onchange="generateImage()">
+                    <option value="sans-serif">系統預設</option>
+                    <option value="'Noto Sans HK', sans-serif">思源黑體</option>
+                    <option value="'Microsoft JhengHei', sans-serif">微軟正黑體</option>
+                </select>
 
-    <!-- 右側 / 下方：控制面板 -->
-    <section id="controlPane">
+                <label>站點列表:</label>
+                <textarea id="stationList" oninput="generateImage()"></textarea>
+            </div>
 
-      <!-- 路線搜尋 -->
-      <div class="panel">
-        <label>路線號碼</label>
-        <input id="routeInput" type="text" placeholder="例如：102" />
-        <button id="searchRouteBtn">搜尋</button>
-      </div>
-
-      <!-- 服務方向選擇 -->
-      <div class="panel">
-        <h3>服務方向</h3>
-        <div id="routeOptions"></div>
-      </div>
-
-      <!-- 站點 / 街道編輯 -->
-      <div class="panel">
-        <h3>站點及街道編輯</h3>
-        <div id="editorPanel">
-          <p class="hint">請先選擇一個服務方向</p>
+            <div class="input-group">
+                <h3>3. 完成</h3>
+                <button class="action-btn" onclick="generateImage()">🎨 重新繪圖</button>
+                <button class="download-btn" onclick="downloadImage()">💾 下載</button>
+                <p id="statusMsg" class="status">準備就緒</p>
+            </div>
         </div>
-      </div>
 
-    </section>
-  </main>
-
-  <script src="script.js"></script>
+        <div class="preview-area">
+            <canvas id="routeCanvas"></canvas>
+        </div>
+    </div>
+    <script src="script.js"></script>
 </body>
 </html>
